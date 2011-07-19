@@ -1,0 +1,18 @@
+function action = validProcess(AG, stimulus, reward)
+
+if (AG.stimulusCount ~= length(stimulus))
+    error('Agent:validStimuls', 'Error: The stimulus vector length does not match the expected length');
+end
+
+try
+    action = AG.process(stimulus, reward);
+
+if (AG.actionCount ~= length(action))
+    error('Agent:validStimuls', 'Error: The action vector length does not match the expected length');
+end
+
+for i = 1:AG.actionCount
+    if isinf(action(i) || isnan(action(i)))
+        error('Agent:validStimuls', 'Error: One of the elements of the action vector is invalid');
+    end
+end

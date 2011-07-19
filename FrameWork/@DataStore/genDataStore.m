@@ -1,0 +1,138 @@
+function genDataStore(DS, numPoints)
+
+%Determine which properties are available and generate size list
+OBJProperties = properties(DS.OBJ);
+OBJSizeStruct = DS.OBJ.genSizeStruct();
+
+%remove step from the record list
+DS.recordList(ismember(DS.recordList, 'step') == 1, :) = [];
+
+%Check size list formatting
+if length(fieldnames(OBJSizeStruct)) < length(DS.recordList)
+    error('FrameTrial:genDataStore', 'Error: improperly formatted size list');
+end
+
+structFormat = cell(length(DS.recordList), 2);
+
+for i = 1:length(DS.recordList)
+    %determine if property in record list is an object property
+    if ismember(DS.recordList{i}, OBJProperties) ~= 1
+        error('FrameTrial:genDataStore', 'Error: %s is not defined or publically accessible', DS.recordList{i});
+    end
+    
+    %determine if property in record list is defined in sizeList
+    if isfield(OBJSizeStruct, DS.recordList{i}) ~= 1 || isfield(subsref(OBJSizeStruct, struct('type', '.', 'subs', DS.recordList{i})), 'type') ~= 1 || isfield(subsref(OBJSizeStruct, struct('type', '.', 'subs', DS.recordList{i})), 'dimensions') ~= 1
+        error('FrameTrial:genDataStroe', 'Error: %s is not defined in sizeList', DS.recordList{i});
+    end
+    
+    type = subsref(OBJSizeStruct, struct('type', {'.', '.'}, 'subs',{DS.recordList{i}, 'type'}));
+    dimensions = subsref(OBJSizeStruct, struct('type', {'.', '.'}, 'subs', {DS.recordList{i}, 'dimensions'}));
+    
+    %initialize data stores for scalar variables
+    if strcmp('Scalar', type) || strcmp('scalar', type)
+        init = zeros(numPoints, 1);
+        structFormat{i,1} = [1,1];
+        structFormat{i,2} = {NaN,1};
+        
+    %initialize data stores for vectors    
+    elseif strcmp('Vector', type) || strcmp('vector', type)
+        %check that the vector specification is numerical
+        
+        if isnumeric(dimensions) ~= 1
+            error('FrameTrial:genDataStore', 'Error: Vectors must have numerical lengths');
+        end
+        
+        if isempty(find(dimensions < 1,1)) ~= 1
+            error('FrameTrial:genDataStore', 'Error: Vectors can not have dimensions with negative components')
+        end
+        
+        if isempty(find(isnan(dimensions) == 1, 1)) ~= 1 || isempty(find(isinf(dimensions) ==1, 1)) ~= 1
+            error('FrameTrial:genDataStore', 'Error: Inf or NaN values can not be used to initialize a matrix')
+        end
+        
+        if length(dimensions) > 2
+            error('FrameTrial:genDataStore', 'Error: A vector must be defined by either a single scalar value or 2 element vector in which one element is equal to 1')
+        end
+                    
+        if length(dimensions) == 2 && dimensions(1) > 1 && dimensions(2) > 1
+                error('FrameTrial:genDataStore', 'Error: A vector must not have two dimensional elements greter than 1')
+        end
+        
+        init = zeros(numPoints, max(dimensions));
+        structFormat{i,1} = [1, max(dimensions)];
+        structFormat{i,2} = {NaN, 1:max(dimensions)};
+            
+    %initialize data stores for matricies
+    elseif strcmp('Matrix', type) ||strcmp('matrix', type)
+        
+        %check that the matrix speicifcation is numerical and a vector
+        if isnumeric(dimensions) ~= 1
+            error('FrameTrial:genDataStore', 'Error: Matrix Dimensions must be Numeric');
+        end
+        
+        if isscalar(dimensions) == 1
+            error('FrameTrial:genDataStore', 'Error: A Matrix can not be defined from a single scalar value')
+        end
+        
+        if isempty(find(dimensions < 1, 1)) ~= 1
+            error('FrameTrial:genDataStore', 'Error: A Matrix can not have dimensions with negative components');
+        end
+        
+        if isempty(find(isnan(dimensions) == 1, 1)) ~= 1 || isempty(find(isinf(dimensions) ==1, 1)) ~= 1
+            error('FrameTrial:genDataStore', 'Error: Inf or NaN values can not be used to initialize a matrix')
+        end
+        
+        if isempty(find(dimensions == 1, 1)) ~= 1
+            error('FrameTrial:genDataStore', 'Error: A Matrix should not have dimension components equal to 1, otherwise it is a vector')
+        end
+        
+        dimensions = conditionalTranspose(dimensions);
+        init = zeros(cat(2, numPoints, dimensions));
+        structFormat{i,1} = dimensions;
+        structFormat{i,2} = cell(1,length(dimensions) + 1);
+        
+        for j = 1:length(dimensions) + 1
+            if j == 1
+                structFormat{i,2}{1,j} = NaN;
+            else
+                structFormat{i,2}{1,j} = 1:dimensions(j-1);
+            end
+        end
+        
+    elseif strcmp('String', type) || strcmp('Other', type) || strcmp('string', type) || strcmp('other', type)
+        
+        init = cell(numPoints,1);
+        structFormat{i,1} = -1;
+        
+    else
+        error('FrameTrial:genDataStore', 'Error: Invalid Type Arguement Specified');
+    end
+    
+    DS.addprop(DS.recordList{i});
+    subsasgn(DS, struct('type', '.', 'subs', DS.recordList{i}), init)
+end
+
+%initialize step
+DS.step = zeros(1, numPoints);
+
+%initailize the dimension and write structures
+if isempty(structFormat) ~= 1 && isempty(DS.recordList) ~= 1
+    DS.storeDim = cell2struct(structFormat(:,1), DS.recordList);
+    DS.storeWrite = cell2struct(structFormat(:,2), DS.recordList);
+end
+
+DS.storeDim.step = [1,1];
+end
+
+%A function which transposes a vector if and only if it is a column vector
+function vector = conditionalTranspose(vector)
+    s = size(vector);
+    
+    if s(1) == 1 && s(2) > 1
+        return;
+    elseif s(2) == 1 && s(1) > 1
+        vector = vector';
+    else
+        error('genDataStore:conditionlTranspose', 'Error: The size vector given does not represent a vector');
+    end
+end

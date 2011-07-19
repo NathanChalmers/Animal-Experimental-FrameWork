@@ -1,0 +1,81 @@
+classdef AgentTaskShare < handle
+    properties (GetAccess = public, SetAccess = protected)
+        samplingRate %The the frequency at which data points are sampled by the framework
+        stimulusCount %The number of variables which defines the stimulus signal the task provides the agent
+        actionCount %the number of variables which defines the action signal the task is to expect from the agent
+    end
+    
+    methods
+%       AgentTaskShare constructor designed to validate common paramaters.
+
+%       INPUT
+%       samplingRate    The refresh rate frequency at which the simulation
+%                       is being recorded.
+%
+%       stimulusCount   The length of the stimulus vector expected by
+%                       process
+%
+%       actionCount     The length of the action vector expected to be
+%                       returned by process
+%
+%
+%       OUTPUT
+%
+%       SH              An initialize AgentTaskShare Object
+        function SH = AgentTaskShare(samplingRate, stimulusCount, actionCount)
+            if isnan(samplingRate) || isinf(samplingRate) || samplingRate < 0 || samplingRate - floor(samplingRate) ~= 0
+                error('AgentTaskShare:Constructor', 'Error: Invalid Sampling Rate');
+            else
+                SH.samplingRate = samplingRate;
+            end
+            
+            if isnan(stimulusCount) || isinf(stimulusCount) || stimulusCount < 0 || stimulusCount - floor(stimulusCount) ~= 0
+                error('AgentTaskShare:Constructor', 'Error: Invalid Stimulus Count');
+            else
+                SH.stimulusCount = stimulusCount;
+            end
+            
+            if isnan(actionCount) || isinf(actionCount) || actionCount < 0 || actionCount - floor(actionCount) ~= 0
+                error('AgentTaskShare:Constructor', 'Error: Invalid Action Count')
+            else
+                SH.actionCount = actionCount;
+            end
+         
+        end
+    end
+    
+    methods (Abstract)
+    %A function which contains a structure outlining the sizes for all
+    %publically accessible recordable properties defined in the
+    %implementing agent or task. The fields of the returned structure are
+    %the string literals of all varriables which could possible be
+    %recorded, regardless as to whether they are being recorded at a given
+    %instance. The value of each field in the structure is a structure
+    %which defines two fields: type and dimensions. Type is a string
+    %literal indicatory of the data type of the class property to be
+    %recorded. The type field may have values 'String', 'Scalar', 'Vector',
+    %'Matrix', and 'Other'. The dimensions field contains a vector of
+    %integer values which define the size of the data structure to be
+    %recorded. For example, a scalar value would have a value of either 1
+    %or [1,1]. A vector would have  value of [n], [n,1], or [1,n]. A matrix
+    %would have a value of [n,m] or [m,n]. 
+
+%       INPUT
+%       TK:         A reference to the initialized Ta Object
+
+%       OUTPUT
+%       sizeList    A n by 3 cell array of the format discussed in the
+%                   functions description
+        sizeList = genSizeStruct(TK);
+    end
+    
+%**************************************************************************
+%Methods and Properties for use by the FrameWork only. Ignore
+%**************************************************************************
+    methods
+        function setStoreDimensions(SH, storeDimensions)
+            SH.storeDimensions  = storeDimensions;
+        end
+    end
+end
+
